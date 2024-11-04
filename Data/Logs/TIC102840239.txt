@@ -1,0 +1,70 @@
+n
+False
+TIC102840239 16.7183 4869 0.1197 ck04 (155.8719377, -43.8349248) True True False 50 5000 1000
+ck04
+Simbad 155.87188457436 -43.83495593586 16.8245 0.0128
+Gaia DR2 5415648821879172096
+5415648821879172096
+INFO: Query finished. [astroquery.utils.tap.core]
+i = 1
+GAIA DR2 155.87193770620465 -43.83492476229843 16.7182957714218 0.03599616038474342 4932.4 4891.525 5035.567
+Use Baseline file
+Best Parallax Simbad 16.8245 0.012799999676644802 0.0007607952495851171
+Current Radius =  1
+clean break
+Vizier SED Radius (arcsec) =  1
+Final VizierSED Error =  None
+Done VizierSED Error =  None
+Observed Data Points =  44
+Start Model & Accuracy ck04 False
+ck04
+Baseline, Teff, Rstar & AppRad =  NASA 4869 0.77 0.012873091
+clean data
+fit_pts  23
+fit_err  0.11
+fit_qual  0.04264287662626061
+Model, Baseline, Teff_bl, Rsun_bl, ang_dia_bl, fit_err ck04 NASA 4869 0.77 0.1197 0.11
+Running burn-in...
+Running production...
+Theta max:  [4.88745425e+03 7.49418745e-01]
+Teff = 4891 51 1.0
+scale = 0.000158
+apprad = 0.0126
+Rstar =  0.748 0.0171 2.3
+Parallax = 16.8245 0.012799999676644802
+Fit Points =  23
+Fit Error =  0.11
+Autocorrelation Time =  [1.84473358 1.82083389]
+Start Model & Accuracy nextgen False
+nextgen
+Baseline, Teff, Rstar & AppRad =  NASA 4869 0.77 0.012873091
+clean data
+fit_pts  22
+fit_err  0.11
+fit_qual  0.050762778386085804
+Model, Baseline, Teff_bl, Rsun_bl, ang_dia_bl, fit_err nextgen NASA 4869 0.77 0.1197 0.11
+Running burn-in...
+Running production...
+Theta max:  [4.94258086e+03 7.33144304e-01]
+Teff = 4938 55 1.1
+scale = 0.000153
+apprad = 0.0124
+Rstar =  0.735 0.0197 2.7
+Parallax = 16.8245 0.012799999676644802
+Fit Points =  22
+Fit Error =  0.11
+Autocorrelation Time =  [1.78939108 1.80648993]
+Best model = ck04
+Runtime =  0:13:15.258779
+/home/djordan/.conda/envs/sed_emcee/lib/python3.7/site-packages/pandas/core/frame.py:7511: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  self[col] = expressions.where(mask, this, that)
+SEDmc/SEDmc.py:1881: SettingWithCopyWarning: 
+A value is trying to be set on a copy of a slice from a DataFrame.
+Try using .loc[row_indexer,col_indexer] = value instead
+
+See the caveats in the documentation: https://pandas.pydata.org/pandas-docs/stable/user_guide/indexing.html#returning-a-view-versus-a-copy
+  store_all['Runtime'] = runtime
