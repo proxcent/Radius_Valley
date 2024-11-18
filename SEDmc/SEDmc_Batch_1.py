@@ -18,7 +18,7 @@ print('Start Time = ', start_time)
 #  Input command line parameter CSV file
 #  Example batch input file record: TIC100990000,15.8999	6169,0.1656,ck04,n,54.819538,-42.7630276
 
-input_para = pd.read_csv('Data/Batch/Batch_1/Batch_1_IN_RV_1-300.csv')  # Read batch input file
+input_para = pd.read_csv('Data/Batch/Batch_1/Batch_1_IN_RV_1-1923.csv')  # Read batch input file
 
 ## Run SEDmc for each star in batch input file
 store_bmrk = pd.DataFrame([])
@@ -37,7 +37,7 @@ for i in range(len(input_para)):
     out_log.close()
     store_all = pd.read_csv('Data/Run_Data/' + input_para.iloc[i,0] +'_store_best.csv')     # Save all data for current star
     store_bmrk = store_bmrk.append(store_all)    # Add data for current star to batch output file and save
-    store_bmrk.to_csv('Data/Batch/Batch_1/Batch_1_OUT_RV_1-300.csv', index=False)
+    store_bmrk.to_csv('Data/Batch/Batch_1/Batch_1_OUT_RV_1-1923.csv', index=False)
     jobtime = datetime.now() - job_start
     print('Jobtime = ', jobtime)  # Show runtime for each star
 

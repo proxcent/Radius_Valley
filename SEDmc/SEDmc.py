@@ -1,30 +1,70 @@
+"""
+SEDmc is a Bayesian enhanced SED fitting module for estimating high accuracy and precision stellar parameters
+
+Current parameters supported are Teff and Rstar with MCMC derived uncertianties
+
+This version is currently a procedural Python script that cannot be imported into other Python programs. 
+A version of SEDmc that can be imported can be found in the GitHub repo Proxcent/SEDmc. However, that
+version is not optimized for the high precision Radius Valley parameter estimation for a large group of
+exoplanet host stars and may fail to provide results for the Radius Valley analysis as decribed in this repo.
+
+Notes: 
+a. Package versions used in this version can be found in SEDmc_packages.txt.
+b. Data/Planet_Sample/Radius Valley Planet Sample.xlsx (Sample) file is use to create input files (e.g., batch, baseline) 
+   and will be used to estimate all planet parameters from SEDmc output files.
+c. Each star can take several minutes to run depending on the processing speed of the host system. The input batch file
+   can seperated in smaller groups of stars (e.g., Batch_1_IN_RV_1-300.csv) and be ran concurrently using TMUX or equivalent. 
+
+To use this module to reproduce the Radius Valley analysis described in the repo, use the following prodedure:
+
+1. If needed, seperate Data/Batch_1/Batch_1_IN_RV_1-1923.csv file into smaller files with corresponding Batch directories and scripts.
+2. Ensure SED/SEDmc_batch_1.py references the correct input and output files (e.g., Data/Batch_1/Batch_1_IN_RV_1-1923.csv)
+3. Ensure prog_flag = False in config.py. Otherwise, log files in Data/Logs will fill up with progress bar data
+4. If no new host stars are being analyzed, then the Data/Baseline_NASA.csv file will have all the baseline data needed 
+   for reproducing previous results.
+5. From OS, run "python SEDmc/SEDmc_Batch_1.py" command from the Radius_Valley directory. 
+6. Copy data from batch output files (e.g., Data/Batch_1/Batch_1_OUT_RV_1-1923.csv) to Sample file as described in step 5 of the README
+   tab of that file.
+7. If no other modifications are needed, then the steps 6 & 7 in the README tab of the Sample should not be needed and data will update 
+   in Planet & Host-Filtered tab automatically.
+8. Steps 8 & 9 in Sample file README tab may still be needed to confirm Planet & Host-Final tab contains original results. 
+
+"""
+
 # coding=utf-8
 # Imports
 # Import all the needed libraries
 
+# Standard Python packages
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import emcee
-import corner
 import os
 import sys
-
-from multiprocessing import Pool
-from fpdf import FPDF
-from fpdf.enums import XPos, YPos  # Works fine even though PyCharm gives error
+import math
 from datetime import date, datetime
+from multiprocessing import Pool
 from contextlib import closing
 from PIL import Image
+from io import BytesIO
+from http.client import HTTPConnection
+
+# Special Python packages
+import pickle
+import emcee
+import corner
+from fpdf import FPDF
+from fpdf.enums import XPos, YPos
 from astroquery.simbad import Simbad
 from astroquery.gaia import Gaia
 from astropy import units as u
+from astropy.table import Table
+
+#Local Python files
+from config import *
 
 
 # # Function to prompt user for input parameters
-# Enter a "-P" at the command line to invoke prompted input
-# Only Object Name is required and is used as source_name in SED(). If not found in SED() then enter RA, DEC position.
-# If RA and DEC entered, then will be used as positions input to SED()
 def prompt_input(err_str):
     sname = input('Enter Object Name (e.g., WASP95): ')
     if sname == "":
@@ -177,9 +217,7 @@ def query_sed(pos, radius=1):
     >>> query_sed((1.286804, 67.840))
     >>> query_sed("HD1")
     """
-    from io import BytesIO
-    from http.client import HTTPConnection
-    from astropy.table import Table
+
     try:
         ra, dec = pos
         target = "{0:f},{1:f}".format(ra, dec)
@@ -1073,7 +1111,7 @@ def find_enclosing_temps(temp,tlist):
 def create_model_at_temp(model,temp):
     """Create a model spectrum for a given temperature
     """
-    import pickle
+
     try:
         filein = open('Data/Stellar_Models/' + model + '.pickle','rb')
     except:
@@ -1113,7 +1151,6 @@ def read_model_spectrum(model,temperature):
 
 def read_all_model_spectra(model):
         """Read all model spectra"""
-        import pickle
         data_file=open('Data/Stellar_Models/'  + model + '.pickle', 'rb')
         tlist = pickle.load( data_file, encoding='latin1')
         models= pickle.load( data_file, encoding='latin1')
@@ -1160,7 +1197,7 @@ def create_model_table():
 # Get Interpolated Model Flux
 # Get the linear interpolated model flux at the observed WL
 def get_mod_at_temp_wl(temp, wl_idx):
-    import math
+
     if starmodel == 'nextgen':
         if temp < 10000:  # For temps < 10,000 K with 100 K increments
             temp_hi = int(math.ceil(temp / 100) * 100)
@@ -1312,571 +1349,563 @@ def rad_range(Rstar_bl):
 
 
 # # # Main Routine # # #
-
-# %matplotlib inline
-fig_size = plt.rcParams['figure.figsize'] = (20, 15)  # Make plots as wide as notebook page
-start_time = datetime.now()
-
-if not os.path.exists('Data/Photometry'):
-    os.makedirs('Data/Photometry/VizierSED')
-    os.makedirs('Data/Photometry/ck04')
-    os.makedirs('Data/Photometry/nextgen') 
-
-if not os.path.exists('Data/Figures'):
-    os.makedirs('Data/Figures')
-    
-if not os.path.exists('Data/Reports'):
-    os.makedirs('Data/Reports/ck04')
-    os.makedirs('Data/Reports/nextgen')
-    
-if not os.path.exists('Data/Run_Data'):
-    os.makedirs('Data/Run_Data')
+if __name__ == "__main__":
+  # %matplotlib inline
+  fig_size = plt.rcParams['figure.figsize'] = (20, 15)  # Make plots as wide as notebook page
+  start_time = datetime.now()
+  
+  if not os.path.exists('Data/Photometry'):
+      os.makedirs('Data/Photometry/VizierSED')
+      os.makedirs('Data/Photometry/ck04')
+      os.makedirs('Data/Photometry/nextgen') 
+  
+  if not os.path.exists('Data/Figures'):
+      os.makedirs('Data/Figures')
+      
+  if not os.path.exists('Data/Reports'):
+      os.makedirs('Data/Reports/ck04')
+      os.makedirs('Data/Reports/nextgen')
+      
+  if not os.path.exists('Data/Run_Data'):
+      os.makedirs('Data/Run_Data')
                
-# Set default sampling parameters
-nwalkers = 50
-niter = 5000
-burn_in = 1000
-thin = 1
-f = 0.1
-log_f = np.log(f)
-prog_flag = False
-
-# # Parse command line arguments and handle errors
-len_arg = len(sys.argv)
-err_str = 'Use command line args in this order-> required: Object(e.g., WASP94); ' \
-          'optional: Parallax Teff AngDia Model UseStored RA DEC'
-
-# # Get input parameters for SED_EMCEE by either command line arguments or prompts
-if len_arg == 1:                           # If only name provided prompt for other input parameters
-    sname, sposition, plx_bmk, Teff_bmk, use_Teff_bmk, ang_dia_bmk, use_ang_dia_bmk, smodel, nwalkers, niter, burn_in, \
-          use_stored, star_model, position = prompt_input(err_str)
-    print(sname, sposition, plx_bmk, Teff_bmk, use_Teff_bmk, ang_dia_bmk, use_ang_dia_bmk, smodel, nwalkers, niter, burn_in,
-          use_stored)
-else:                            # If command lime arguments provided parse for input parameters and set sampling values
-    sname, plx_bmk, Teff_bmk, ang_dia_bmk, sposition, smodel, use_ang_dia_bmk, use_Teff_bmk, \
-          use_stored, star_model, position = parse_arg(len_arg, err_str)
-    print(sname, plx_bmk, Teff_bmk, ang_dia_bmk, star_model, position, sposition, smodel, use_stored, nwalkers, niter, burn_in)
-
-# Convert stored data flag to text
-if use_stored:
-    stored = "Stored"
-else:
-    stored = "New"
-
-## Define Star Model
-if not smodel:
-    star_model = starmodel = 'ck04'
-else:
-    starmodel = star_model
-print(starmodel)
-
-
-## Create tables to store all input parameters and results
-store_all = pd.DataFrame({'Source':sname}, index=[0])
-
-## Create tables to store all samplers data and results
-store_sampler_all = pd.DataFrame([])
-store_sampler = pd.DataFrame([])
-store_test = pd.DataFrame()
-check = 0
-
-# Capture all paralax data to chose one with lowest uncertainty
-plx_data = pd.DataFrame(columns = ['Plx', 'Plx_err', 'Plx_pre'])
-
-## Fit Star using source name
-source_name = sname
-
-src_ID_2 = "NaN"
-RA, DEC, plx, plx_err  = get_VO_Data(source_name)
-#plx_data.loc['VO_wavg'] = [plx, plx_err, plx_err / plx]   #Add VO Weighted average data
-
-# Load Benchmark Data for source if available
-use_Teff_bmk = False  # Force use of bennchmark file
-bl_source = 'NASA'
-data_bl = pd.read_csv('Data/Baseline_' + bl_source + '.csv')
-data_bl_source = data_bl[data_bl['HD'].isin([sname])]
-if data_bl_source.empty and not use_Teff_bmk:   # Set values to NaN and SEDFit data to baseline if benchmark data not available
-    # use_Teff_bmk = False
-    # use_ang_dia_bmk = False
-    Teff_bmk = "NaN"
-    Teff_bmk_err = "NaN"
-    Rstar_bmk = "NaN"
-    Rstar_bmk_err = "NaN"
-    ang_dia_bmk = "NaN"
-    ang_dia_bmk_err = "NaN"
-    plx_bmk = "NaN"
-    plx_bmk_err = "NaN"
-    if src_ID_2 != "Nan":
-        Teff_bl = store_all['TEFF_dr2'][0]   # Use GAIA DR2 Teff as baseline Temp
-        Rstar_bl = store_all['RSTAR_dr2'][0]  # Use GAIA DR2 Rstar as baseline stellar radius
-    # ang_dia_bmk = s.sfit_apprad * 4.65047 * 2    # Use SEDFit apprad
-    apprad_bl = (Rstar_bl * plx) / 1000
-    print('Teff & apprad not defined')
-elif use_Teff_bmk:   # Use user input benchmark data if available and set as baseline data
-    Teff_bl = Teff_bmk    # Use SEDFit Temp and baseline Temp
-    # ang_dia_bmk = s.sfit_apprad * 4.65047 * 2    # Use SEDFit apprad
-    apprad_bl = ang_dia_bmk / (4.65047 * 2)
-    Rstar_bmk = Rstar_bl = float('{:.3g}'.format((ang_dia_bmk * 1000) / (4.65047 * 2 * plx_bmk)))
-    Teff_bmk_err = "NaN"
-    Rstar_bmk_err = "NaN"
-    ang_dia_bmk_err = "NaN"
-    plx_bmk_err = "NaN"
-    print('Use Command Line BL Data')
-else:                # Use benchmark data from file and set baseline data
-    # use_Teff_bmk = True
-    # use_ang_dia_bmk = True
-    data_bl_source = data_bl_source.reset_index(drop=True)
-    Teff_bl = data_bl_source['Teff'][0]
-    Teff_bl_err = data_bl_source['Teff_err'][0]
-    Rstar_bl = data_bl_source['Rstar'][0]
-    Rstar_bl_err = data_bl_source['Rstar_err'][0]
-    ang_dia_bl = data_bl_source['angdia'][0]
-    apprad_bl = ang_dia_bl / (4.65047 * 2)
-    ang_dia_bl_err = data_bl_source['angdia_err'][0]
-    plx_bl = data_bl_source['plx'][0]
-    plx_bl_err = data_bl_source['plx_err'][0]
-    baseline = bl_source
-    print('Use Baseline file')
-store_all['Teff_bl'] = Teff_bl
-store_all['Teff_bl_err'] = Teff_bl_err
-store_all['Rstar_bl'] = Rstar_bl
-store_all['Rstar_bl_err'] = Rstar_bl_err
-store_all['ang_dia_bl'] = ang_dia_bl
-store_all['ang_dia_bl_err'] = ang_dia_bl_err
-store_all['plx_bl'] = plx_bl
-store_all['plx_bl_err'] = plx_bl_err
-if isinstance(plx_bl, float): 
-    plx_data.loc['Baseline'] = [plx_bl, plx_bl_err, plx_bl_err / plx_bl]
-
-min_radius, max_radius = rad_range(Rstar_bl) ##  Set Likelihood radius range
-
-# # Observed Photometry Filter Function
-# Configuration parameters
-wl_min = 0.4
-wl_max = 8
-# temp = 5134
-# scale = 0.00706841867129298
-# fit_err_max = 0.2
-fit_err_init = 0.1
-fit_pts_min = 12
-
-plx_idx = plx_data[['Plx_pre']].idxmin()[0]  # Get index of best parallax
-plx_mc, plx_mc_err, plx_mc_pre = plx_data.loc[plx_idx]   #Get best parallax for SEDmc input
-print("Best Parallax", plx_idx, plx_mc, plx_mc_err, plx_mc_pre)
-
-# Store SED_EMCEE input parameters
-store_all['Walkers'] = nwalkers
-store_all['Iterations'] = niter
-store_all['Burn In'] = burn_in
-store_all['Best Plx'] = plx_idx
-store_all['Parallax'] = plx = plx_mc
-store_all['Parallax_err'] = plx_err = plx_mc_err
-
-
-# # Use query_sed to get Photometry data
-obs_data_range, viz_err = query_sed(source_name)
-print('Done VizierSED Error = ', viz_err)
-obs_data = obs_data_range
-obs_data = remove_dups(obs_data)
-if len(obs_data) < fit_pts_min:
-    fit_pts_min = len(obs_data)
-print('Observed Data Points = ', len(obs_data))
-
-
-# Run both models
-save_acc = pd.DataFrame(columns = ['Teff', 'Radius'])  #Capture %Delta bl/Bl data
-save_err = pd.DataFrame(columns = ['Teff', 'Radius'])  #Capture error data
-save_store_all = pd.DataFrame([])
-model_lst = ['ck04','nextgen']
-for starmodel in model_lst:
-    low_acc = False  # reset low_acc flag for new model
-    print('Start Model & Accuracy', starmodel, low_acc)
-    if starmodel == 'ck04' and Teff_bl <= 3600:   ## Don't use CK04 if temp < 3600
-        save_acc.loc[starmodel] = [99.99, 99.99]
-        save_err.loc[starmodel] = [99.99, 99.99]
-        print('CK04 skipped')
-        continue
-    print(starmodel)
-
-    min_model_temp, max_model_temp = temp_range(Teff_bl, starmodel) # Set temp range for likelihood function
-
-    # Get Baseline Best Fit curve
-    bl_star = create_model_at_temp(starmodel, Teff_bl) # interpolate between model temps above and below
-    apprad_bl = (Rstar_bl * plx_bl) / 1000
-    bl_star.fluxes *= apprad_bl**2    # Multiply fluxes by scale factor (apprad**2)
-    print("Baseline, Teff, Rstar & AppRad = ", baseline, Teff_bl, Rstar_bl, apprad_bl)
-    # # FIRST ITERATION # #
-    # Perform first iteration using SED best fit curve for filtering observed data #
-    itr = 1
-    
-    if use_stored:  # Use stored observed data for fit curve
-        good_data, bad_data, fit_pts, fit_err, fit_qual, bad_cnt = get_stored_data(fit_err_init, fit_pts_min)
-    else:  # Get observed data for fit curve
-        # # Original clean data filtering method
-        # good_data, bad_data, bad_data_keep, fit_pts, fit_err, fit_qual, fit_qual2 = get_clean_data(obs_data_range, bl_star, fit_err_init, fit_pts_min)
-        # # Updated clean data filtering method
-        print("clean data")
-        good_data, bad_data, fit_pts, fit_err, fit_qual = get_clean_data(obs_data, bl_star, fit_err_init, fit_pts_min)
-        # # Vizier SED data filtering based on blackbody curve fitting method
-        if fit_err > .5:  # Check if low accuracy
-            low_acc = True
-            print('Low Accuracy - Fit Err = ', fit_err)
-            if isinstance(store_all['RSTAR_dr2'][0], float) and not np.isnan(store_all['RSTAR_dr2'][0]):
-                # Check if DR2 data available 
-                Teff_bl = int(store_all['TEFF_dr2'][0])
-                Teff_bl_err = int(store_all['TEFF_POS_dr2'][0]) - Teff_bl
-                Rstar_bl = float('{:.3g}'.format(store_all['RSTAR_dr2'][0]))
-                Rstar_bl_err = float('{:.3g}'.format(abs(store_all['RSTAR_POS_dr2'][0] - Rstar_bl)))
-                plx_bl = float('{:.3g}'.format(store_all['PLX_dr2'][0]))
-                plx_bl_err = float('{:.3g}'.format(store_all['PLX_ERR_dr2'][0]))
-                bl_star = create_model_at_temp(starmodel, Teff_bl) # interpolate between model temps above and below
-                ang_dia_bl = store_all['ang_dia_bl'] = float('{:.3g}'.format(4.65047 * 2 / 1000 * Rstar_bl * plx_bl))
-                ang_dia_bl_err = store_all['ang_dia_bl_err'] = float('{:.2g}'.format(4.65047 * 2 /1000 * np.sqrt((Rstar_bl * plx_bl_err)**2 + (plx_bl * Rstar_bl_err)**2)))
-                apprad_bl = (Rstar_bl * plx_bl) / 1000
-                bl_star.fluxes *= apprad_bl**2    # Multiply fluxes by scale factor (apprad**2)
-                print("DR2 Teff, Rstar & AppRad = ", Teff_bl, Rstar_bl, apprad_bl)
-                good_data, bad_data, fit_pts, fit_err, fit_qual = get_clean_data(obs_data, bl_star, fit_err_init, fit_pts_min)
-                min_radius, max_radius = rad_range(Rstar_bl)
-                min_model_temp, max_model_temp = temp_range(Teff_bl, starmodel)
-                store_all['Teff_bl'] = Teff_bl
-                store_all['Teff_bl_err'] = Teff_bl_err
-                store_all['Rstar_bl'] = Rstar_bl
-                store_all['Rstar_bl_err'] = Rstar_bl_err
-                baseline = 'GAIA DR2'
-                if fit_err > .5:  # Check if low accuracy
-                    low_acc = True
-                    print('DR2 Low Accuracy - Fit Err = ', fit_err)
-            else:
-                print('DR2 data not available')
-
-            
-        good_data = good_data.reset_index(drop=True)
-        wl_min = float('{:.3g}'.format(np.min(good_data.wl)))
-        wl_max = float('{:.3g}'.format(np.max(good_data.wl)))
-        bad_data_idx = bad_data.index
-        bad_data = bad_data.reset_index(drop=True)
-        bad_cnt = len(bad_data)
-    
-    # Separate plotting data
-    gx = good_data.wl
-    gy = good_data.fl
-    bx = bad_data.wl
-    by = bad_data.fl
-    
-    # Clean up flux error
-    good_data.efl = good_data.efl.replace(np.nan, 0)   # replace NaN with 0
-    good_data['efl'] = np.where(good_data['efl'] == 0, good_data['fl'] * 0.1, good_data['efl'])   # replace 0 w/ 10% flux
-    
-    # Separate into column lists
-    obs_wl = good_data.wl  # Use SED wl range and clean data
-    obs_flux = good_data.fl  # Use SED observed flux @ wl range and clean data from inphot
-    obs_flux_err = good_data.efl  # Use SED observed flux error @ wl range and clean data from inphot
-    obs_wl_idx = list(range(0, len(obs_wl)))  # Update wl index list for EMCEE model for wl range and clean data
-    
-    
-    # # Get Model and Create 2D Model Table
-    mf_df_out, mf_df_temp = create_model_table()
-    
-    # # SED_EMCEE Sampler Data
-    p0, ndim, data = define_data()
-    
-    # Run Sampler
-    print('Model, Baseline, Teff_bl, Rsun_bl, ang_dia_bl, fit_err', starmodel, baseline, Teff_bl, Rstar_bl, ang_dia_bl, fit_err)
-    sampler, pos, prob, state = run_sampler(p0)
-    
-    #Reset Baseline data and run again if accuracy too low
-    loop_cnt = 0
-    while low_acc == True:
-        loop_cnt += 1
-        print('Loop Count =', loop_cnt)
-        samples = sampler.flatchain
-        temps = np.percentile(samples[:, 0], [16, 50, 84])
-        Teff_bl = int(temps[0])
-        Teff_bl_err = int(np.diff(temps)[0])
-        radii = np.percentile(samples[:, 1], [16, 50, 84])
-        Rstar_bl = float('{:.3g}'.format(radii[0]))
-        Rstar_bl_err = float('{:.3g}'.format(np.diff(radii)[0]))
-        plx_bl = plx_mc
-        plx_bl_err = plx_mc_err
-        bl_star = create_model_at_temp(starmodel, Teff_bl) # interpolate between model temps above and below
-        ang_dia_bl = store_all['ang_dia_bl'] = float('{:.3g}'.format(4.65047 * 2 / 1000 * Rstar_bl * plx_bl))
-        ang_dia_bl_err = store_all['ang_dia_bl_err'] = float('{:.2g}'.format(4.65047 * 2 /1000 * np.sqrt((Rstar_bl * plx_bl_err)**2 + (plx_bl * Rstar_bl_err)**2)))
-        apprad_bl = (Rstar_bl * plx_bl) / 1000
-        bl_star.fluxes *= apprad_bl**2    # Multiply fluxes by scale factor (apprad**2)
-        print("SEDmc Teff, Rstar, AngDia & AppRad = ", Teff_bl, Rstar_bl, ang_dia_bl, apprad_bl)
-        good_data, bad_data, fit_pts, fit_err, fit_qual = get_clean_data(obs_data, bl_star, fit_err_init, fit_pts_min)
-        min_radius, max_radius = rad_range(Rstar_bl)
-        min_model_temp, max_model_temp = temp_range(Teff_bl, starmodel)
-        store_all['Teff_bl'] = Teff_bl
-        store_all['Teff_bl_err'] = Teff_bl_err
-        store_all['Rstar_bl'] = Rstar_bl
-        store_all['Rstar_bl_err'] = Rstar_bl_err
-        baseline = 'Initial SEDmc Results'
-        
-        #Clean up Good Data
-        good_data = good_data.reset_index(drop=True)
-        wl_min = float('{:.3g}'.format(np.min(good_data.wl)))
-        wl_max = float('{:.3g}'.format(np.max(good_data.wl)))
-        bad_data_idx = bad_data.index
-        bad_data = bad_data.reset_index(drop=True)
-        bad_cnt = len(bad_data)
-    
-        # Separate plotting data
-        gx = good_data.wl
-        gy = good_data.fl
-        bx = bad_data.wl
-        by = bad_data.fl
-    
-        # Clean up flux error
-        good_data.efl = good_data.efl.replace(np.nan, 0)   # replace NaN with 0
-        good_data['efl'] = np.where(good_data['efl'] == 0, good_data['fl'] * 0.1, good_data['efl'])   # replace 0 w/ 10% flux
-        
-        # Separate into column lists
-        obs_wl = good_data.wl  # Use SED wl range and clean data
-        obs_flux = good_data.fl  # Use SED observed flux @ wl range and clean data from inphot
-        obs_flux_err = good_data.efl  # Use SED observed flux error @ wl range and clean data from inphot
-        obs_wl_idx = list(range(0, len(obs_wl)))  # Update wl index list for EMCEE model for wl range and clean data
-                
-        # # Get Model and Create 2D Model Table
-        mf_df_out, mf_df_temp = create_model_table()
-        
-        # # SED_EMCEE Sampler Data
-        p0, ndim, data = define_data()
-        
-        # Run Sampler
-        print('Model, Baseline, Teff_bl, Rsun_bl, ang_dia_bl, fit_err', starmodel, baseline, Teff_bl, Rstar_bl, ang_dia_bl, fit_err)
-        sampler, pos, prob, state = run_sampler(p0)
-        
-        # Check Accuracy and Update flag
-        samples = sampler.flatchain
-        radii = np.percentile(samples[:, 1], [16, 50, 84])
-        Rstar_ck = float('{:.3g}'.format(radii[0]))
-        Rstar_ck_acc = abs((Rstar_ck - Rstar_bl) / Rstar_bl)
-        if fit_err > 0.5 or Rstar_ck_acc > 0.2:
-            low_acc = True
-            print('Low Accuracy Check', low_acc, fit_err, Rstar_ck_acc)
-            if loop_cnt == 3:
-                low_acc = False
-                print('Loop Count Exceeded')
-                continue
-        else:
-            low_acc = False
-            print('Low Accuracy Check', low_acc, fit_err, Rstar_ck_acc)
-    
-    # Plot Sampler Behavior
-    plot_chain(itr)
-    
-    # Get samples, max values of parameter space & AutoCorrelation times
-    samples = sampler.flatchain  # Per example
-    theta_max = samples[np.argmax(sampler.flatlnprobability)]  # Per example
-    tau = sampler.get_autocorr_time(quiet=True)
-    
-    # Calculate Uncertainties & Plot
-    teff_med, teff_u_neg, teff_u_plus, teff_med_pct_bl, scale_med, scale_u_neg, scale_u_plus, apprad_med, \
-    apprad_u_neg, apprad_u_plus, ang_dia_emc, ang_dia_emc_u_neg, ang_dia_emc_u_plus, ang_dia_emc_pct_bl, \
-    Rstar_med, Rstar_u_neg, Rstar_u_plus, Rstar_bl, Rstar_pct_bl, ang_dia_emc_pct_u, teff_pct_u, Rstar_pct_u = plot_sigmas(itr)
-    
-    # Get SED_EMCEE Best Fit curve
-    fit_star = create_model_at_temp(starmodel, theta_max[0]) # interpolate between model temps above and below
-    fit_star.fluxes *= scale_med  # Multiply fluxes by scale factor (apprad**2)
-    
-    # # Corner Plot
-    labels = plot_corner(itr)
-    
-    # # Print Best Fit Value Summary
-    print_summary(plx_mc, plx_mc_err)
-    
-    # Calculate & Store additional parameters
-    
-    store_all['VizSed_Error'] = viz_err
-    store_all['Baseln'] = baseline
-    Tau_Teff = store_all['Tau_Teff'] = round(tau[0], 3)
-    Tau_Radius = store_all['Tau_Radius'] = round(tau[1], 3)
-    store_all['Stored'] = stored
-    store_all['Model'] = starmodel
-    store_all['Name'] = source_name
-    store_all['Rsn'] = Rstar_med
-    store_all['Rsn_err-'] = Rstar_u_neg
-    store_all['Rsn_err+'] = Rstar_u_plus
-    store_all['%Rsn_err-'] = Rstar_u_neg / Rstar_med
-    store_all['%Rsn_err+'] = Rstar_u_plus / Rstar_med
-    
-    # Plot SED_EMCEE Best Fit curve and Observed Data
-    plot_SED_EMCEE_obs(gx, gy, bx, by, itr)
-    
-    # Plot Observed Data Table
-    plot_obs_table(itr)
-    
-    # Round parallax and error for report
-    plx_rpt = float('{:.4g}'.format(plx_mc))
-    plx_rpt_err = float('{:.3g}'.format(plx_mc_err))
-    if isinstance(plx_bl, float): 
-        plx_bl_rpt = float('{:.4g}'.format(plx_bl))
-        plx_bl_rpt_err = float('{:.3g}'.format(plx_bl_err))
-    else:
-        plx_bl_rpt = plx_bl
-        plx_bl_rpt_err = plx_bl_err
-    
-    # Create PDF, add header & SEDfit plot
-    star_data = [
-        ["Data Type", "Teff [K]", "Rstar [Rsun]", "Angular Diameter [arcsec]", ],
-        ["Baseline Values {SEDmc residuals}", str(Teff_bl) + " (+/-" + str(Teff_bl_err) + ')'+ '  {' + str(teff_med_pct_bl) + '%}', 
-              str(Rstar_bl) + " (+/-" + str(Rstar_bl_err) + ')' + '  {' + str(Rstar_pct_bl) + '%}',
-              str(ang_dia_bl) + " (+/-" + str(ang_dia_bl_err) + ')' + '  {' + str(ang_dia_emc_pct_bl) + '%}', ],
-        ["SEDmc Results {fractional error}", str(teff_med) + " (+" + str(teff_u_plus) + ', -' + str(teff_u_neg) + ')' + '  {' + str(teff_pct_u) + '%}',
-             str(Rstar_med) + " (+" + str(Rstar_u_plus) + ', -' + str(Rstar_u_neg) + ')' + '  {' + str(Rstar_pct_u) + '%}',
-             str(ang_dia_emc) + " (+" + str(ang_dia_emc_u_plus) + ', -' + str(ang_dia_emc_u_neg) + ')' + '  {' + str(ang_dia_emc_pct_u) + '%}', ], 
-    ]
-    pdf = FPDF()
-    if position == (0,0):
-        position = (RA,DEC)
-    pdf_header()
-    
-    # Add Plots to PDF Report ##
-    pdf_plots(itr)
-    
-    
-    # # Edit Observed Data Point # #
-    loop = False  # Disables observed data editor. Comment out to enable editor.
-    while loop:
-        # Enter EMCEE sampling parameters or accept defaults
-        print('Would you like to edit points (y = yes)? ')
-        edit_pts = sys.stdin.readline()
-        if edit_pts == "y\n":
-            plot_obs(itr, obs_data, gx, gy, bx, by)
-            plot_obs_table(itr)
-            # Reading and show png image file for XTerm sessions
-            im1 = Image.open('Data/Figures/' + source_name + '_Observed_' + str(itr) + '.png')
-            im2 = Image.open('Data/Figures/' + source_name + '_Observed_Table' + str(itr) + '.png')
-            # show images
-            im1.show()
-            im2.show()
-            # Pick New Bad Points
-            print('Add new Bad points from Good points list. Enter return only when done.')
-            try:
-                bad_pts = []
-                while True:
-                    bad_pts.append(int(sys.stdin.readline()))
-            # if the input is non-integer, continue
-            except:
-                print(bad_pts)
-                add_bad_data_idx = bad_pts
-                add_bad_data = pd.DataFrame(good_data, index=add_bad_data_idx)
-            # Pick New Good Points
-            print('Add new Good points from Bad points list. Enter return only when done.')
-            try:
-                good_pts = []
-                while True:
-                    good_pts.append(int(sys.stdin.readline()))
-            # if the input is non-integer, continue
-            except:
-                print(good_pts)
-                add_good_data_idx = good_pts
-                add_good_data = pd.DataFrame(bad_data, index=add_good_data_idx)
-            if len(bad_pts) != 0:
-                # Drop these from good_data
-                new_good_data = good_data.drop(index=add_bad_data_idx)
-                # Add to bad_data
-                new_bad_data = pd.concat([bad_data, add_bad_data], ignore_index=True)
-                # print(" 1 - ngd = ", len(new_good_data), "nbd = ", len(new_bad_data))
-            else:
-                new_good_data = good_data
-                new_bad_data = bad_data
-                # print(" 2 - ngd = ", len(new_good_data), "nbd = ", len(new_bad_data))
-            if len(good_pts) != 0:
-                # Drop these from bad data
-                new_bad_data = new_bad_data.drop(index=add_good_data_idx)
-                # Add to good_data
-                new_good_data = pd.concat([new_good_data, add_good_data], ignore_index=True)
-                # print(" 3 - ngd = ", len(new_good_data), "nbd = ", len(new_bad_data))
-            # Creat new lists
-            new_good_data = new_good_data.sort_values(by=['wl'])
-            new_bad_data = new_bad_data.sort_values(by=['wl'])
-            good_data = new_good_data.reset_index(drop=True)
-            bad_data = new_bad_data.reset_index(drop=True)
-            # print(" 4 - ngd = ", len(new_good_data), "nbd = ", len(new_bad_data))
-    
-    
-            # # # Next ITERATION # # #
-            # Perform next iteration using manual observed data edits#
-            itr += 1
-    
-            # Separate plotting data
-            gx = good_data.wl
-            gy = good_data.fl
-            bx = bad_data.wl
-            by = bad_data.fl
-    
-            # Separate into column lists
-            obs_wl = good_data.wl  # Use SED wl range and clean data
-            obs_flux = good_data.fl  # Use SED observed flux @ wl range and clean data from inphot
-            obs_flux_err = good_data.efl  # Use SED observed flux error @ wl range and clean data from inphot
-            obs_wl_idx = list(range(0, len(obs_wl)))  # Update wl index list for EMCEE model for wl range and clean data
-    
-            # Plot SEDfit best fit curve and observed data
-            # plot_SEDfit_obs(gx, gy, bx, by)
-    
-            # # Get Model and Create 2D Model Table
-            mf_df_out, mf_df_temp = create_model_table()
-    
-            # # SED_EMCEE Sampler Data
-            p0, ndim, data = define_data()
-    
-            # Run Sampler
-            sampler, pos, prob, state = run_sampler(p0)                
-    
-            # Plot Sampler Behavior
-            plot_chain(itr)
-    
-            # # Print Best Fit Value Summary
-            samples, theta_max, Rstar, plx, tau = print_summary(plx)
-    
-            # Get SED_EMCEE Best Fit curve
-            fit_star = create_model_at_temp(starmodel, theta_max[0]) # interpolate between model temps above and below
-            fit_star.fluxes *= theta_max[1] # Multiply fluxes by scale factor (apprad**2)
-    
-            # # Corner Plot
-            labels = plot_corner(itr)
-    
-            # Calculate Uncertainties & Plot
-            teff_med, teff_u_neg, teff_u_plus, teff_med_pct_bl, scale_med, scale_u_neg, scale_u_plus, \
-            apprad_med, apprad_u_neg, apprad_u_plus, ang_dia_emc, ang_dia_emc_u_neg, ang_dia_emc_u_plus, \
-            ang_dia_emc_pct_bl, Rstar_med, Rstar_u_neg, Rstar_u_plus = plot_sigmas(itr)
-    
-            # Plot SED_EMCEE Best Fit curve and Observed Data
-            plot_SED_EMCEE_obs(gx, gy, bx, by, itr)
-    
-            # Add Plots to PDF Report ##
-            pdf.add_page()
-            pdf_plots(itr)
-        else:
-            loop = False
-    
-    
-    # Save PDF
-    pdf.output('Data/Reports/' + starmodel + '/' + sname + '-' + stored + '.pdf')
-    
-    # Save Store all data for current model
-    save_store_all = save_store_all.append(store_all)
-    
-    # Store Photometry Data
-    good_data.to_csv('Data/Photometry/' + star_model + '/' + sname + '_good_data.csv', index=False)
-    bad_data.to_csv('Data/Photometry/' + star_model + '/' + sname + '_bad_data.csv', index=False)
-    
-    # Save accuracy & precision data
-    save_acc.loc[starmodel] = [abs(teff_med_pct_bl), abs(Rstar_pct_bl)]  # Accuracy data
-    save_err.loc[starmodel] = [abs(teff_pct_u), abs(Rstar_pct_u)]          # Precision data
-
-# Choose most accurate and precise model results
-#starmodel = save_acc[['Teff']].idxmin()[0]   # Use for highest accuracy model
-starmodel = save_err[['Radius']].idxmin()[0]   # Use for highest precision model
-print('Best model =', starmodel)
-
-runtime = datetime.now() - start_time
-print('Runtime = ', runtime)
-
-# Store all data
-#store_all = input_para = pd.read_csv('store_all_' + starmodel +'.csv')
-store_all = save_store_all.loc[save_store_all['Model'] == starmodel]
-store_all['Runtime'] = runtime
-store_all.to_csv('Data/Run_Data/' + sname +'_store_best.csv', index=False)
+  print('Prog_Flag = ',prog_flag)
+  
+  # # Parse command line arguments and handle errors
+  len_arg = len(sys.argv)
+  err_str = 'Use command line args in this order-> required: Object(e.g., WASP94); ' \
+            'optional: Parallax Teff AngDia Model UseStored RA DEC'
+  
+  # # Get input parameters for SED_EMCEE by either command line arguments or prompts
+  if len_arg == 1:                           # If only name provided prompt for other input parameters
+      sname, sposition, plx_bmk, Teff_bmk, use_Teff_bmk, ang_dia_bmk, use_ang_dia_bmk, smodel, nwalkers, niter, burn_in, \
+            use_stored, star_model, position = prompt_input(err_str)
+      print(sname, sposition, plx_bmk, Teff_bmk, use_Teff_bmk, ang_dia_bmk, use_ang_dia_bmk, smodel, nwalkers, niter, burn_in,
+            use_stored)
+  else:                            # If command lime arguments provided parse for input parameters and set sampling values
+      sname, plx_bmk, Teff_bmk, ang_dia_bmk, sposition, smodel, use_ang_dia_bmk, use_Teff_bmk, \
+            use_stored, star_model, position = parse_arg(len_arg, err_str)
+      print(sname, plx_bmk, Teff_bmk, ang_dia_bmk, star_model, position, sposition, smodel, use_stored, nwalkers, niter, burn_in)
+  
+  # Convert stored data flag to text
+  if use_stored:
+      stored = "Stored"
+  else:
+      stored = "New"
+  
+  ## Define Star Model
+  if not smodel:
+      star_model = starmodel = 'ck04'
+  else:
+      starmodel = star_model
+  print(starmodel)
+  
+  
+  ## Create tables to store all input parameters and results
+  store_all = pd.DataFrame({'Source':sname}, index=[0])
+  
+  ## Create tables to store all samplers data and results
+  store_sampler_all = pd.DataFrame([])
+  store_sampler = pd.DataFrame([])
+  store_test = pd.DataFrame()
+  check = 0
+  
+  # Capture all paralax data to chose one with lowest uncertainty
+  plx_data = pd.DataFrame(columns = ['Plx', 'Plx_err', 'Plx_pre'])
+  
+  ## Fit Star using source name
+  source_name = sname
+  
+  src_ID_2 = "NaN"
+  RA, DEC, plx, plx_err  = get_VO_Data(source_name)
+  
+  # Load Benchmark Data for source if available
+  use_Teff_bmk = False  # Force use of bennchmark file
+  bl_source = 'NASA'
+  data_bl = pd.read_csv('Data/Baseline_' + bl_source + '.csv')
+  data_bl_source = data_bl[data_bl['HD'].isin([sname])]
+  if data_bl_source.empty and not use_Teff_bmk:   # Set values to NaN and SEDFit data to baseline if benchmark data not available
+      # use_Teff_bmk = False
+      # use_ang_dia_bmk = False
+      Teff_bmk = "NaN"
+      Teff_bmk_err = "NaN"
+      Rstar_bmk = "NaN"
+      Rstar_bmk_err = "NaN"
+      ang_dia_bmk = "NaN"
+      ang_dia_bmk_err = "NaN"
+      plx_bmk = "NaN"
+      plx_bmk_err = "NaN"
+      if src_ID_2 != "Nan":
+          Teff_bl = store_all['TEFF_dr2'][0]   # Use GAIA DR2 Teff as baseline Temp
+          Rstar_bl = store_all['RSTAR_dr2'][0]  # Use GAIA DR2 Rstar as baseline stellar radius
+      # ang_dia_bmk = s.sfit_apprad * 4.65047 * 2    # Use SEDFit apprad
+      apprad_bl = (Rstar_bl * plx) / 1000
+      print('Teff & apprad not defined')
+  elif use_Teff_bmk:   # Use user input benchmark data if available and set as baseline data
+      Teff_bl = Teff_bmk    # Use SEDFit Temp and baseline Temp
+      # ang_dia_bmk = s.sfit_apprad * 4.65047 * 2    # Use SEDFit apprad
+      apprad_bl = ang_dia_bmk / (4.65047 * 2)
+      Rstar_bmk = Rstar_bl = float('{:.3g}'.format((ang_dia_bmk * 1000) / (4.65047 * 2 * plx_bmk)))
+      Teff_bmk_err = "NaN"
+      Rstar_bmk_err = "NaN"
+      ang_dia_bmk_err = "NaN"
+      plx_bmk_err = "NaN"
+      print('Use Command Line BL Data')
+  else:                # Use benchmark data from file and set baseline data
+      # use_Teff_bmk = True
+      # use_ang_dia_bmk = True
+      data_bl_source = data_bl_source.reset_index(drop=True)
+      Teff_bl = data_bl_source['Teff'][0]
+      Teff_bl_err = data_bl_source['Teff_err'][0]
+      Rstar_bl = data_bl_source['Rstar'][0]
+      Rstar_bl_err = data_bl_source['Rstar_err'][0]
+      ang_dia_bl = data_bl_source['angdia'][0]
+      apprad_bl = ang_dia_bl / (4.65047 * 2)
+      ang_dia_bl_err = data_bl_source['angdia_err'][0]
+      plx_bl = data_bl_source['plx'][0]
+      plx_bl_err = data_bl_source['plx_err'][0]
+      baseline = bl_source
+      print('Use Baseline file')
+  store_all['Teff_bl'] = Teff_bl
+  store_all['Teff_bl_err'] = Teff_bl_err
+  store_all['Rstar_bl'] = Rstar_bl
+  store_all['Rstar_bl_err'] = Rstar_bl_err
+  store_all['ang_dia_bl'] = ang_dia_bl
+  store_all['ang_dia_bl_err'] = ang_dia_bl_err
+  store_all['plx_bl'] = plx_bl
+  store_all['plx_bl_err'] = plx_bl_err
+  if isinstance(plx_bl, float): 
+      plx_data.loc['Baseline'] = [plx_bl, plx_bl_err, plx_bl_err / plx_bl]
+  
+  min_radius, max_radius = rad_range(Rstar_bl) ##  Set Likelihood radius range
+  
+  # # Observed Photometry Filter Function
+  # Configuration parameters
+  wl_min = 0.4
+  wl_max = 8
+  # temp = 5134
+  # scale = 0.00706841867129298
+  # fit_err_max = 0.2
+  fit_err_init = 0.1
+  fit_pts_min = 12
+  
+  plx_idx = plx_data[['Plx_pre']].idxmin()[0]  # Get index of best parallax
+  plx_mc, plx_mc_err, plx_mc_pre = plx_data.loc[plx_idx]   #Get best parallax for SEDmc input
+  print("Best Parallax", plx_idx, plx_mc, plx_mc_err, plx_mc_pre)
+  
+  # Store SED_EMCEE input parameters
+  store_all['Walkers'] = nwalkers
+  store_all['Iterations'] = niter
+  store_all['Burn In'] = burn_in
+  store_all['Best Plx'] = plx_idx
+  store_all['Parallax'] = plx = plx_mc
+  store_all['Parallax_err'] = plx_err = plx_mc_err
+  
+  
+  # # Use query_sed to get Photometry data
+  obs_data_range, viz_err = query_sed(source_name)
+  print('Done VizierSED Error = ', viz_err)
+  obs_data = obs_data_range
+  obs_data = remove_dups(obs_data)
+  if len(obs_data) < fit_pts_min:
+      fit_pts_min = len(obs_data)
+  print('Observed Data Points = ', len(obs_data))
+  
+  
+  # Run both models
+  save_acc = pd.DataFrame(columns = ['Teff', 'Radius'])  #Capture %Delta bl/Bl data
+  save_err = pd.DataFrame(columns = ['Teff', 'Radius'])  #Capture error data
+  save_store_all = pd.DataFrame([])
+  model_lst = ['ck04','nextgen']
+  for starmodel in model_lst:
+      low_acc = False  # reset low_acc flag for new model
+      print('Start Model & Accuracy', starmodel, low_acc)
+      if starmodel == 'ck04' and Teff_bl <= 3600:   ## Don't use CK04 if temp < 3600
+          save_acc.loc[starmodel] = [99.99, 99.99]
+          save_err.loc[starmodel] = [99.99, 99.99]
+          print('CK04 skipped')
+          continue
+      print(starmodel)
+  
+      min_model_temp, max_model_temp = temp_range(Teff_bl, starmodel) # Set temp range for likelihood function
+  
+      # Get Baseline Best Fit curve
+      bl_star = create_model_at_temp(starmodel, Teff_bl) # interpolate between model temps above and below
+      apprad_bl = (Rstar_bl * plx_bl) / 1000
+      bl_star.fluxes *= apprad_bl**2    # Multiply fluxes by scale factor (apprad**2)
+      print("Baseline, Teff, Rstar & AppRad = ", baseline, Teff_bl, Rstar_bl, apprad_bl)
+      # # FIRST ITERATION # #
+      # Perform first iteration using SED best fit curve for filtering observed data #
+      itr = 1
+      
+      if use_stored:  # Use stored observed data for fit curve
+          good_data, bad_data, fit_pts, fit_err, fit_qual, bad_cnt = get_stored_data(fit_err_init, fit_pts_min)
+      else:  # Get observed data for fit curve
+          # # Original clean data filtering method
+          # good_data, bad_data, bad_data_keep, fit_pts, fit_err, fit_qual, fit_qual2 = get_clean_data(obs_data_range, bl_star, fit_err_init, fit_pts_min)
+          # # Updated clean data filtering method
+          print("clean data")
+          good_data, bad_data, fit_pts, fit_err, fit_qual = get_clean_data(obs_data, bl_star, fit_err_init, fit_pts_min)
+          # # Vizier SED data filtering based on blackbody curve fitting method
+          if fit_err > .5:  # Check if low accuracy
+              low_acc = True
+              print('Low Accuracy - Fit Err = ', fit_err)
+              if isinstance(store_all['RSTAR_dr2'][0], float) and not np.isnan(store_all['RSTAR_dr2'][0]):
+                  # Check if DR2 data available 
+                  Teff_bl = int(store_all['TEFF_dr2'][0])
+                  Teff_bl_err = int(store_all['TEFF_POS_dr2'][0]) - Teff_bl
+                  Rstar_bl = float('{:.3g}'.format(store_all['RSTAR_dr2'][0]))
+                  Rstar_bl_err = float('{:.3g}'.format(abs(store_all['RSTAR_POS_dr2'][0] - Rstar_bl)))
+                  plx_bl = float('{:.3g}'.format(store_all['PLX_dr2'][0]))
+                  plx_bl_err = float('{:.3g}'.format(store_all['PLX_ERR_dr2'][0]))
+                  bl_star = create_model_at_temp(starmodel, Teff_bl) # interpolate between model temps above and below
+                  ang_dia_bl = store_all['ang_dia_bl'] = float('{:.3g}'.format(4.65047 * 2 / 1000 * Rstar_bl * plx_bl))
+                  ang_dia_bl_err = store_all['ang_dia_bl_err'] = float('{:.2g}'.format(4.65047 * 2 /1000 * np.sqrt((Rstar_bl * plx_bl_err)**2 + (plx_bl * Rstar_bl_err)**2)))
+                  apprad_bl = (Rstar_bl * plx_bl) / 1000
+                  bl_star.fluxes *= apprad_bl**2    # Multiply fluxes by scale factor (apprad**2)
+                  print("DR2 Teff, Rstar & AppRad = ", Teff_bl, Rstar_bl, apprad_bl)
+                  good_data, bad_data, fit_pts, fit_err, fit_qual = get_clean_data(obs_data, bl_star, fit_err_init, fit_pts_min)
+                  min_radius, max_radius = rad_range(Rstar_bl)
+                  min_model_temp, max_model_temp = temp_range(Teff_bl, starmodel)
+                  store_all['Teff_bl'] = Teff_bl
+                  store_all['Teff_bl_err'] = Teff_bl_err
+                  store_all['Rstar_bl'] = Rstar_bl
+                  store_all['Rstar_bl_err'] = Rstar_bl_err
+                  baseline = 'GAIA DR2'
+                  if fit_err > .5:  # Check if low accuracy
+                      low_acc = True
+                      print('DR2 Low Accuracy - Fit Err = ', fit_err)
+              else:
+                  print('DR2 data not available')
+  
+              
+          good_data = good_data.reset_index(drop=True)
+          wl_min = float('{:.3g}'.format(np.min(good_data.wl)))
+          wl_max = float('{:.3g}'.format(np.max(good_data.wl)))
+          bad_data_idx = bad_data.index
+          bad_data = bad_data.reset_index(drop=True)
+          bad_cnt = len(bad_data)
+      
+      # Separate plotting data
+      gx = good_data.wl
+      gy = good_data.fl
+      bx = bad_data.wl
+      by = bad_data.fl
+      
+      # Clean up flux error
+      good_data.efl = good_data.efl.replace(np.nan, 0)   # replace NaN with 0
+      good_data['efl'] = np.where(good_data['efl'] == 0, good_data['fl'] * 0.1, good_data['efl'])   # replace 0 w/ 10% flux
+      
+      # Separate into column lists
+      obs_wl = good_data.wl  # Use SED wl range and clean data
+      obs_flux = good_data.fl  # Use SED observed flux @ wl range and clean data from inphot
+      obs_flux_err = good_data.efl  # Use SED observed flux error @ wl range and clean data from inphot
+      obs_wl_idx = list(range(0, len(obs_wl)))  # Update wl index list for EMCEE model for wl range and clean data
+      
+      
+      # # Get Model and Create 2D Model Table
+      mf_df_out, mf_df_temp = create_model_table()
+      
+      # # SED_EMCEE Sampler Data
+      p0, ndim, data = define_data()
+      
+      # Run Sampler
+      print('Model, Baseline, Teff_bl, Rsun_bl, ang_dia_bl, fit_err', starmodel, baseline, Teff_bl, Rstar_bl, ang_dia_bl, fit_err)
+      sampler, pos, prob, state = run_sampler(p0)
+      
+      #Reset Baseline data and run again if accuracy too low
+      loop_cnt = 0
+      while low_acc == True:
+          loop_cnt += 1
+          print('Loop Count =', loop_cnt)
+          samples = sampler.flatchain
+          temps = np.percentile(samples[:, 0], [16, 50, 84])
+          Teff_bl = int(temps[0])
+          Teff_bl_err = int(np.diff(temps)[0])
+          radii = np.percentile(samples[:, 1], [16, 50, 84])
+          Rstar_bl = float('{:.3g}'.format(radii[0]))
+          Rstar_bl_err = float('{:.3g}'.format(np.diff(radii)[0]))
+          plx_bl = plx_mc
+          plx_bl_err = plx_mc_err
+          bl_star = create_model_at_temp(starmodel, Teff_bl) # interpolate between model temps above and below
+          ang_dia_bl = store_all['ang_dia_bl'] = float('{:.3g}'.format(4.65047 * 2 / 1000 * Rstar_bl * plx_bl))
+          ang_dia_bl_err = store_all['ang_dia_bl_err'] = float('{:.2g}'.format(4.65047 * 2 /1000 * np.sqrt((Rstar_bl * plx_bl_err)**2 + (plx_bl * Rstar_bl_err)**2)))
+          apprad_bl = (Rstar_bl * plx_bl) / 1000
+          bl_star.fluxes *= apprad_bl**2    # Multiply fluxes by scale factor (apprad**2)
+          print("SEDmc Teff, Rstar, AngDia & AppRad = ", Teff_bl, Rstar_bl, ang_dia_bl, apprad_bl)
+          good_data, bad_data, fit_pts, fit_err, fit_qual = get_clean_data(obs_data, bl_star, fit_err_init, fit_pts_min)
+          min_radius, max_radius = rad_range(Rstar_bl)
+          min_model_temp, max_model_temp = temp_range(Teff_bl, starmodel)
+          store_all['Teff_bl'] = Teff_bl
+          store_all['Teff_bl_err'] = Teff_bl_err
+          store_all['Rstar_bl'] = Rstar_bl
+          store_all['Rstar_bl_err'] = Rstar_bl_err
+          baseline = 'Initial SEDmc Results'
+          
+          #Clean up Good Data
+          good_data = good_data.reset_index(drop=True)
+          wl_min = float('{:.3g}'.format(np.min(good_data.wl)))
+          wl_max = float('{:.3g}'.format(np.max(good_data.wl)))
+          bad_data_idx = bad_data.index
+          bad_data = bad_data.reset_index(drop=True)
+          bad_cnt = len(bad_data)
+      
+          # Separate plotting data
+          gx = good_data.wl
+          gy = good_data.fl
+          bx = bad_data.wl
+          by = bad_data.fl
+      
+          # Clean up flux error
+          good_data.efl = good_data.efl.replace(np.nan, 0)   # replace NaN with 0
+          good_data['efl'] = np.where(good_data['efl'] == 0, good_data['fl'] * 0.1, good_data['efl'])   # replace 0 w/ 10% flux
+          
+          # Separate into column lists
+          obs_wl = good_data.wl  # Use SED wl range and clean data
+          obs_flux = good_data.fl  # Use SED observed flux @ wl range and clean data from inphot
+          obs_flux_err = good_data.efl  # Use SED observed flux error @ wl range and clean data from inphot
+          obs_wl_idx = list(range(0, len(obs_wl)))  # Update wl index list for EMCEE model for wl range and clean data
+                  
+          # # Get Model and Create 2D Model Table
+          mf_df_out, mf_df_temp = create_model_table()
+          
+          # # SED_EMCEE Sampler Data
+          p0, ndim, data = define_data()
+          
+          # Run Sampler
+          print('Model, Baseline, Teff_bl, Rsun_bl, ang_dia_bl, fit_err', starmodel, baseline, Teff_bl, Rstar_bl, ang_dia_bl, fit_err)
+          sampler, pos, prob, state = run_sampler(p0)
+          
+          # Check Accuracy and Update flag
+          samples = sampler.flatchain
+          radii = np.percentile(samples[:, 1], [16, 50, 84])
+          Rstar_ck = float('{:.3g}'.format(radii[0]))
+          Rstar_ck_acc = abs((Rstar_ck - Rstar_bl) / Rstar_bl)
+          if fit_err > 0.5 or Rstar_ck_acc > 0.2:
+              low_acc = True
+              print('Low Accuracy Check', low_acc, fit_err, Rstar_ck_acc)
+              if loop_cnt == 3:
+                  low_acc = False
+                  print('Loop Count Exceeded')
+                  continue
+          else:
+              low_acc = False
+              print('Low Accuracy Check', low_acc, fit_err, Rstar_ck_acc)
+      
+      # Plot Sampler Behavior
+      plot_chain(itr)
+      
+      # Get samples, max values of parameter space & AutoCorrelation times
+      samples = sampler.flatchain  # Per example
+      theta_max = samples[np.argmax(sampler.flatlnprobability)]  # Per example
+      tau = sampler.get_autocorr_time(quiet=True)
+      
+      # Calculate Uncertainties & Plot
+      teff_med, teff_u_neg, teff_u_plus, teff_med_pct_bl, scale_med, scale_u_neg, scale_u_plus, apprad_med, \
+      apprad_u_neg, apprad_u_plus, ang_dia_emc, ang_dia_emc_u_neg, ang_dia_emc_u_plus, ang_dia_emc_pct_bl, \
+      Rstar_med, Rstar_u_neg, Rstar_u_plus, Rstar_bl, Rstar_pct_bl, ang_dia_emc_pct_u, teff_pct_u, Rstar_pct_u = plot_sigmas(itr)
+      
+      # Get SED_EMCEE Best Fit curve
+      fit_star = create_model_at_temp(starmodel, theta_max[0]) # interpolate between model temps above and below
+      fit_star.fluxes *= scale_med  # Multiply fluxes by scale factor (apprad**2)
+      
+      # # Corner Plot
+      labels = plot_corner(itr)
+      
+      # # Print Best Fit Value Summary
+      print_summary(plx_mc, plx_mc_err)
+      
+      # Calculate & Store additional parameters
+      
+      store_all['VizSed_Error'] = viz_err
+      store_all['Baseln'] = baseline
+      Tau_Teff = store_all['Tau_Teff'] = round(tau[0], 3)
+      Tau_Radius = store_all['Tau_Radius'] = round(tau[1], 3)
+      store_all['Stored'] = stored
+      store_all['Model'] = starmodel
+      store_all['Name'] = source_name
+      store_all['Rsn'] = Rstar_med
+      store_all['Rsn_err-'] = Rstar_u_neg
+      store_all['Rsn_err+'] = Rstar_u_plus
+      store_all['%Rsn_err-'] = Rstar_u_neg / Rstar_med
+      store_all['%Rsn_err+'] = Rstar_u_plus / Rstar_med
+      
+      # Plot SED_EMCEE Best Fit curve and Observed Data
+      plot_SED_EMCEE_obs(gx, gy, bx, by, itr)
+      
+      # Plot Observed Data Table
+      plot_obs_table(itr)
+      
+      # Round parallax and error for report
+      plx_rpt = float('{:.4g}'.format(plx_mc))
+      plx_rpt_err = float('{:.3g}'.format(plx_mc_err))
+      if isinstance(plx_bl, float): 
+          plx_bl_rpt = float('{:.4g}'.format(plx_bl))
+          plx_bl_rpt_err = float('{:.3g}'.format(plx_bl_err))
+      else:
+          plx_bl_rpt = plx_bl
+          plx_bl_rpt_err = plx_bl_err
+      
+      # Create PDF, add header & SEDfit plot
+      star_data = [
+          ["Data Type", "Teff [K]", "Rstar [Rsun]", "Angular Diameter [arcsec]", ],
+          ["Baseline Values {SEDmc residuals}", str(Teff_bl) + " (+/-" + str(Teff_bl_err) + ')'+ '  {' + str(teff_med_pct_bl) + '%}', 
+                str(Rstar_bl) + " (+/-" + str(Rstar_bl_err) + ')' + '  {' + str(Rstar_pct_bl) + '%}',
+                str(ang_dia_bl) + " (+/-" + str(ang_dia_bl_err) + ')' + '  {' + str(ang_dia_emc_pct_bl) + '%}', ],
+          ["SEDmc Results {fractional error}", str(teff_med) + " (+" + str(teff_u_plus) + ', -' + str(teff_u_neg) + ')' + '  {' + str(teff_pct_u) + '%}',
+               str(Rstar_med) + " (+" + str(Rstar_u_plus) + ', -' + str(Rstar_u_neg) + ')' + '  {' + str(Rstar_pct_u) + '%}',
+               str(ang_dia_emc) + " (+" + str(ang_dia_emc_u_plus) + ', -' + str(ang_dia_emc_u_neg) + ')' + '  {' + str(ang_dia_emc_pct_u) + '%}', ], 
+      ]
+      pdf = FPDF()
+      if position == (0,0):
+          position = (RA,DEC)
+      pdf_header()
+      
+      # Add Plots to PDF Report ##
+      pdf_plots(itr)
+      
+      
+      # # Edit Observed Data Point # #
+      loop = False  # Disables observed data editor. Comment out to enable editor.
+      while loop:
+          # Enter EMCEE sampling parameters or accept defaults
+          print('Would you like to edit points (y = yes)? ')
+          edit_pts = sys.stdin.readline()
+          if edit_pts == "y\n":
+              plot_obs(itr, obs_data, gx, gy, bx, by)
+              plot_obs_table(itr)
+              # Reading and show png image file for XTerm sessions
+              im1 = Image.open('Data/Figures/' + source_name + '_Observed_' + str(itr) + '.png')
+              im2 = Image.open('Data/Figures/' + source_name + '_Observed_Table' + str(itr) + '.png')
+              # show images
+              im1.show()
+              im2.show()
+              # Pick New Bad Points
+              print('Add new Bad points from Good points list. Enter return only when done.')
+              try:
+                  bad_pts = []
+                  while True:
+                      bad_pts.append(int(sys.stdin.readline()))
+              # if the input is non-integer, continue
+              except:
+                  print(bad_pts)
+                  add_bad_data_idx = bad_pts
+                  add_bad_data = pd.DataFrame(good_data, index=add_bad_data_idx)
+              # Pick New Good Points
+              print('Add new Good points from Bad points list. Enter return only when done.')
+              try:
+                  good_pts = []
+                  while True:
+                      good_pts.append(int(sys.stdin.readline()))
+              # if the input is non-integer, continue
+              except:
+                  print(good_pts)
+                  add_good_data_idx = good_pts
+                  add_good_data = pd.DataFrame(bad_data, index=add_good_data_idx)
+              if len(bad_pts) != 0:
+                  # Drop these from good_data
+                  new_good_data = good_data.drop(index=add_bad_data_idx)
+                  # Add to bad_data
+                  new_bad_data = pd.concat([bad_data, add_bad_data], ignore_index=True)
+                  # print(" 1 - ngd = ", len(new_good_data), "nbd = ", len(new_bad_data))
+              else:
+                  new_good_data = good_data
+                  new_bad_data = bad_data
+                  # print(" 2 - ngd = ", len(new_good_data), "nbd = ", len(new_bad_data))
+              if len(good_pts) != 0:
+                  # Drop these from bad data
+                  new_bad_data = new_bad_data.drop(index=add_good_data_idx)
+                  # Add to good_data
+                  new_good_data = pd.concat([new_good_data, add_good_data], ignore_index=True)
+                  # print(" 3 - ngd = ", len(new_good_data), "nbd = ", len(new_bad_data))
+              # Creat new lists
+              new_good_data = new_good_data.sort_values(by=['wl'])
+              new_bad_data = new_bad_data.sort_values(by=['wl'])
+              good_data = new_good_data.reset_index(drop=True)
+              bad_data = new_bad_data.reset_index(drop=True)
+              # print(" 4 - ngd = ", len(new_good_data), "nbd = ", len(new_bad_data))
+      
+      
+              # # # Next ITERATION # # #
+              # Perform next iteration using manual observed data edits#
+              itr += 1
+      
+              # Separate plotting data
+              gx = good_data.wl
+              gy = good_data.fl
+              bx = bad_data.wl
+              by = bad_data.fl
+      
+              # Separate into column lists
+              obs_wl = good_data.wl  # Use SED wl range and clean data
+              obs_flux = good_data.fl  # Use SED observed flux @ wl range and clean data from inphot
+              obs_flux_err = good_data.efl  # Use SED observed flux error @ wl range and clean data from inphot
+              obs_wl_idx = list(range(0, len(obs_wl)))  # Update wl index list for EMCEE model for wl range and clean data
+      
+              # Plot SEDfit best fit curve and observed data
+              # plot_SEDfit_obs(gx, gy, bx, by)
+      
+              # # Get Model and Create 2D Model Table
+              mf_df_out, mf_df_temp = create_model_table()
+      
+              # # SED_EMCEE Sampler Data
+              p0, ndim, data = define_data()
+      
+              # Run Sampler
+              sampler, pos, prob, state = run_sampler(p0)                
+      
+              # Plot Sampler Behavior
+              plot_chain(itr)
+      
+              # # Print Best Fit Value Summary
+              samples, theta_max, Rstar, plx, tau = print_summary(plx)
+      
+              # Get SED_EMCEE Best Fit curve
+              fit_star = create_model_at_temp(starmodel, theta_max[0]) # interpolate between model temps above and below
+              fit_star.fluxes *= theta_max[1] # Multiply fluxes by scale factor (apprad**2)
+      
+              # # Corner Plot
+              labels = plot_corner(itr)
+      
+              # Calculate Uncertainties & Plot
+              teff_med, teff_u_neg, teff_u_plus, teff_med_pct_bl, scale_med, scale_u_neg, scale_u_plus, \
+              apprad_med, apprad_u_neg, apprad_u_plus, ang_dia_emc, ang_dia_emc_u_neg, ang_dia_emc_u_plus, \
+              ang_dia_emc_pct_bl, Rstar_med, Rstar_u_neg, Rstar_u_plus = plot_sigmas(itr)
+      
+              # Plot SED_EMCEE Best Fit curve and Observed Data
+              plot_SED_EMCEE_obs(gx, gy, bx, by, itr)
+      
+              # Add Plots to PDF Report ##
+              pdf.add_page()
+              pdf_plots(itr)
+          else:
+              loop = False
+      
+      
+      # Save PDF
+      pdf.output('Data/Reports/' + starmodel + '/' + sname + '-' + stored + '.pdf')
+      
+      # Save Store all data for current model
+      save_store_all = save_store_all.append(store_all)
+      
+      # Store Photometry Data
+      good_data.to_csv('Data/Photometry/' + star_model + '/' + sname + '_good_data.csv', index=False)
+      bad_data.to_csv('Data/Photometry/' + star_model + '/' + sname + '_bad_data.csv', index=False)
+      
+      # Save accuracy & precision data
+      save_acc.loc[starmodel] = [abs(teff_med_pct_bl), abs(Rstar_pct_bl)]  # Accuracy data
+      save_err.loc[starmodel] = [abs(teff_pct_u), abs(Rstar_pct_u)]          # Precision data
+  
+  # Choose most accurate and precise model results
+  #starmodel = save_acc[['Teff']].idxmin()[0]   # Use for highest accuracy model
+  starmodel = save_err[['Radius']].idxmin()[0]   # Use for highest precision model
+  print('Best model =', starmodel)
+  
+  runtime = datetime.now() - start_time
+  print('Runtime = ', runtime)
+  
+  # Store all data
+  #store_all = input_para = pd.read_csv('store_all_' + starmodel +'.csv')
+  store_all = save_store_all.loc[save_store_all['Model'] == starmodel]
+  store_all['Runtime'] = runtime
+  store_all.to_csv('Data/Run_Data/' + sname +'_store_best.csv', index=False)

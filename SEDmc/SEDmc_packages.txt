@@ -1,0 +1,12 @@
+# packages use for SEDmc.py
+#
+# Name                    Version                   Build  Channel 
+astropy                   4.3.1                    pypi_0    pypi
+astroquery                0.4.6                    pypi_0    pypi
+corner                    2.2.1                    pypi_0    pypi
+emcee                     3.1.3                    pypi_0    pypi
+fpdf                      1.7.2                    pypi_0    pypi 
+matplotlib                3.5.3                    pypi_0    pypi 
+numpy                     1.21.6                   pypi_0    pypi
+pandas                    1.3.5                    pypi_0    pypi 
+python                    3.7.13                   haa1d7c7_1    
