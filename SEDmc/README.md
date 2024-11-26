@@ -4,9 +4,10 @@
 This version is currently a procedural Python script that cannot be imported into other Python programs. A version of SEDmc that can be imported can be found in the GitHub repo **Proxcent/SEDmc**. However, that version is not optimized for the high precision Radius Valley parameter estimation for a large group of exoplanet host stars and may fail to provide results for the Radius Valley analysis as described in this repo.
 
 ### Notes: 
-a. Package versions used in this version can be found in **SEDmc_packages.txt**.
-b. **Data/Planet_Sample/Radius Valley Planet Sample.xlsx** (*Sample*) file is use to create input files (e.g., batch, baseline) and will be used to estimate all planet parameters from *SEDmc* output files.
-c. Each star can take several minutes to run depending on the processing speed of the host system. The input batch file can separated in smaller groups of stars (e.g., Batch_1_IN_RV_1-300.csv) and be ran concurrently using TMUX or equivalent. 
+
+1. Package versions used in this version can be found in **SEDmc_packages.txt**.
+2. **Data/Planet_Sample/Radius Valley Planet Sample.xlsx** (*Sample*) file is use to create input files (e.g., batch, baseline) and will be used to estimate all planet parameters from *SEDmc* output files.
+3. Each star can take several minutes to run depending on the processing speed of the host system. The input batch file can separated in smaller groups of stars (e.g., Batch_1_IN_RV_1-300.csv) and be ran concurrently using TMUX or equivalent. 
 ### SEDmc Parameter Estimation Process
 To use this module to reproduce the Radius Valley analysis described in the repo, use the following procedure:
 1. If needed, separate **Data/Batch_1/Batch_1_IN_RV_1-1923.csv** file into smaller files with corresponding Batch directories and scripts.
